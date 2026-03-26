@@ -25,6 +25,12 @@
 #include <QFile>
 #include <QTextStream>
 
+// 6.引入文件选择对话框
+#include <QFileDialog>   
+
+// 7.引入世界最强的 C++ 矩阵库
+#include <Eigen/Dense>   
+
 class stil_drive : public QMainWindow
 {
     Q_OBJECT
@@ -38,6 +44,7 @@ private slots:
     void on_btn_Disconnect_clicked();
     void on_btn_Start_clicked();
     void on_btn_Stop_clicked();
+    void on_btn_Analyze_clicked();
 
     // 接收线程数据的槽函数
     void handleDataReady(QVector<double> alts, QVector<double> ints);

@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include "qcustomplot.h" 
 #include <QPen>
+#include <Eigen/Dense>
 
 // 构造函数：stil_drive 类的初始化，继承自 QMainWindow
 stil_drive::stil_drive(QWidget* parent)
@@ -220,7 +221,7 @@ void stil_drive::on_btn_Start_clicked()
             m_csvStream.setDevice(&m_csvFile);
 
             // 写入 CSV 表头（即第一行的列名），\n 代表换行
-            m_csvStream << "Point_Index,Altitude(um),Intensity(%)\n";
+            m_csvStream << "X(um),Y(um),Z_Altitude(um),Intensity(%)\n";
         }
         else {
             QMessageBox::warning(this, "警告", "无法创建数据文件！"); // 可能没有文件夹写入权限
@@ -298,66 +299,177 @@ void stil_drive::on_btn_Stop_clicked()
     ui.btn_Stop->setEnabled(false);   // 已经停下来了，就不需要再点“停止”了，将其变灰禁用
 }
 
-// ---- 接收数据的槽函数 (核心画图与保存逻辑) ----
-// 这个函数在 btn_Start 中被 connect 绑定。子线程每采集到一批数据，就会自动触发它。
-// 参数 alts (Altitudes) 存的是高度数组，ints (Intensities) 存的是光强数组
+// ---- 接收数据的槽函数 (核心画图、坐标模拟与保存逻辑) ----
 void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
 {
-    // 1. 获取这批传过来的数据量大小
     int dataSize = alts.size();
-
-    // 【防呆】如果传过来的是空数组，直接退出，防止后面报错
     if (dataSize == 0) return;
 
-    // 2. 准备 X 轴的数据
-    // 因为测头传过来的只有 Y 轴（高度）和光强，我们要自己给它配上 X 轴（第几个采样点）
-    // 提前分配好 dataSize 大小的内存，这样比一个一个追加 (append) 速度快很多
     QVector<double> xData(dataSize);
 
-    // 3. 遍历处理这批新数据
-    for (int i = 0; i < dataSize; i++) {
-        // 计算当前点的 X 坐标：历史总点数 + 当前批次里的第 i 个
-        xData[i] = m_totalPoints + i;
+    // ==========================================
+    // 模拟机床运动学参数
+    // ==========================================
+    double speed_um_per_sec = 1000.0; // 假设机床 X 轴移动速度：1000 um/s (即 1 mm/s)
 
-        // 如果用户勾选了“保存数据”（文件处于打开状态）
+    // 动态获取你界面下拉框里选择的采样频率
+    QString freqText = ui.cmb_Freq->currentText();
+    double freq_hz = freqText.remove(" Hz").toDouble();
+    if (freq_hz <= 0) freq_hz = 1000.0; // 防呆保护
+
+    // 核心计算：物理间距 = 速度 / 频率
+    double delta_x = speed_um_per_sec / freq_hz;
+    // ==========================================
+
+    for (int i = 0; i < dataSize; i++) {
+        // 1. 计算模拟的机床物理坐标
+        double simulated_X = (m_totalPoints + i) * delta_x;
+        double simulated_Y = 0.0; // 假设只扫一条直线，Y为0
+
+        // 2. 将模拟的物理 X 坐标存入画图数组 (这样波形图的横坐标就是实际物理距离了！)
+        xData[i] = simulated_X;
+
+        // 3. 数据融合！写入 CSV 文件 (X, Y, Z, 光强)
         if (m_csvFile.isOpen()) {
-            // 将 序号、高度、光强 按照逗号分隔的 CSV 格式写入文件，并加上换行符 \n
-            // QTextStream 内部有缓冲区，这样频繁使用 << 写入也是相对高效的
-            m_csvStream << (m_totalPoints + i) << "," << alts[i] << "," << ints[i] << "\n";
+            m_csvStream << simulated_X << "," << simulated_Y << "," << alts[i] << "," << ints[i] << "\n";
         }
     }
 
-    // ==========================================
-    // 4. QCustomPlot 动态画图核心逻辑
-    // ==========================================
-    // 将刚刚算好的 X 轴数组和传过来的 Y 轴数组 (高度)，追加到第 0 条曲线的尾部
-    // 注意：这里用的是 addData (追加)，而不是 setData (全部替换)
+    // 将带有物理 X 坐标的新数据追加到图表中
     ui.plot_Widget->graph(0)->addData(xData, alts);
-
-    // 更新历史总点数记录（加上刚才处理的这批数据量）
     m_totalPoints += dataSize;
 
-    // 【实现波形滚动的魔法】
-    // 设定 X 轴的显示范围。比如永远只显示最新的 1000 个点，多出来的旧点会被挤到左边屏幕外
-    // Qt::AlignRight 表示向右对齐，配合 m_totalPoints 实现波形从右向左“流动”的视觉效果
-    ui.plot_Widget->xAxis->setRange(m_totalPoints - 1000, m_totalPoints, Qt::AlignRight);
+    // 动态调整图表的显示范围 (让视图始终跟随最新的物理位置)
+    double current_X = m_totalPoints * delta_x;
+    double window_width_X = 1000 * delta_x; // 画面始终显示最近 1000 个点的物理宽度
+    ui.plot_Widget->xAxis->setRange(current_X - window_width_X, current_X, Qt::AlignRight);
 
-    // 自动缩放 Y 轴：根据当前屏幕内能看到的波形最高点和最低点，自动拉伸 Y 轴的高度
-    // 传入 true 表示允许它仅仅根据当前可见的范围去计算缩放比例
     ui.plot_Widget->graph(0)->rescaleValueAxis(true);
-
-    // 【终极触发】前面只是设置了数据和坐标轴参数，调用 replot() 才会真正让显卡去把图画出来！
     ui.plot_Widget->replot();
 
-    // ==========================================
-    // 5. 更新状态栏 UI
-    // ==========================================
-    // 使用 QString::arg() 拼接出动态的文本。
-    // alts.last() 是 QVector 的便捷函数，直接获取数组里的最后一个元素（也就是最新采集到的那个高度）
-    ui.lbl_Status->setText(QString("状态：采集中 | 已采点数: %1 | 最新高度: %2 um")
-        .arg(m_totalPoints)
-        .arg(alts.last()));
+    // 更新界面上的文字标签，现在显示的是真正的物理坐标了！
+    ui.lbl_Status->setText(QString("状态：采集中 | 当前位置 X: %1 um | 最新高度 Z: %2 um")
+        .arg(current_X, 0, 'f', 2).arg(alts.last(), 0, 'f', 2));
 }
+// ---- 核心后处理：加载原始数据，清洗，并进行三维平面拟合 ----
+void stil_drive::on_btn_Analyze_clicked()
+{
+    // 1. 弹出对话框，让用户选择之前保存的 CSV 原始数据
+    QString filePath = QFileDialog::getOpenFileName(this, "选择测头原始数据", "", "CSV 文件 (*.csv)");
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "错误", "无法打开数据文件！");
+        return;
+    }
+
+    QTextStream in(&file);
+    QString header = in.readLine(); // 读取并跳过第一行表头
+
+    // 准备容器，存放清洗后的“纯净优质数据”
+    std::vector<double> valid_X, valid_Y, valid_Z;
+
+    // 2. 遍历读取 CSV，进行【数据清洗】
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        QStringList parts = line.split(',');
+        if (parts.size() >= 4) {
+            double x = parts[0].toDouble();
+            double y = parts[1].toDouble();
+            double z = parts[2].toDouble();
+            double intensity = parts[3].toDouble();
+
+            // 【硬核清洗规则】：
+            // 光强低于 5% 或高于 95% 的点，全部视为边缘/过曝废点，直接扔掉！
+            // qIsNaN(z) 用来排除之前可能存入的无效 NaN 点
+            if (intensity > 5.0 && intensity < 95.0 && !qIsNaN(z)) {
+                valid_X.push_back(x);
+                valid_Y.push_back(y);
+                valid_Z.push_back(z);
+            }
+        }
+    }
+    file.close();
+
+    int n = valid_X.size();
+    if (n < 3) {
+        QMessageBox::warning(this, "失败", "清洗后有效数据不足 3 个点，无法拟合 3D 平面！");
+        return;
+    }
+
+    // ==========================================
+    // 3. Eigen 数学魔法时间：最小二乘法求 3D 平面
+    // 平面方程: Z = A*X + B*Y + C
+    // 转换为矩阵方程: M * v = Z_vec
+    // ==========================================
+    Eigen::MatrixXd M(n, 3);
+    Eigen::VectorXd Z_vec(n);
+
+    for (int i = 0; i < n; i++) {
+        M(i, 0) = valid_X[i];
+        M(i, 1) = valid_Y[i];
+        M(i, 2) = 1.0;
+        Z_vec(i) = valid_Z[i];
+    }
+
+    // 调用 Eigen 的 QR 分解器，瞬间求出最优解 [A, B, C]
+    Eigen::Vector3d v = M.colPivHouseholderQr().solve(Z_vec);
+
+    double A = v(0); // X 轴方向的斜率
+    double B = v(1); // Y 轴方向的斜率
+    double C = v(2); // Z 轴截距 (平均高度)
+
+    // ==========================================
+    // 4. 误差分析：计算 PV (峰谷值) 和 RMS (均方根误差)
+    // ==========================================
+    double max_residual = -1e9; // 找最凸起的点
+    double min_residual = 1e9;  // 找最凹陷的点
+    double sq_sum = 0.0;        // 误差平方和
+
+    for (int i = 0; i < n; i++) {
+        // 计算当前 (X,Y) 对应的理论基准平面高度
+        double fit_Z = A * valid_X[i] + B * valid_Y[i] + C;
+
+        // 实际高度减去理论高度，得到残差（也就是真正的面形起伏）
+        double residual = valid_Z[i] - fit_Z;
+
+        if (residual > max_residual) max_residual = residual;
+        if (residual < min_residual) min_residual = residual;
+        sq_sum += residual * residual;
+    }
+
+    double PV = max_residual - min_residual;   // 面形峰谷值
+    double RMS = std::sqrt(sq_sum / n);        // 面形 RMS 粗糙度
+
+    // 将斜率转换为直观的物理倾斜角 (度)
+    double angleX = std::atan(A) * 180.0 / M_PI;
+    double angleY = std::atan(B) * 180.0 / M_PI;
+
+    // 5. 华丽的输出报告！
+    QString report = QString(
+        "【数据清洗报告】\n"
+        "原始采集点数：海量\n"
+        "有效优质点数：%1 个\n\n"
+        "【装配倾角分析 (Leveling)】\n"
+        "X 轴装配倾角： %2 度\n"
+        "Y 轴装配倾角： %3 度\n"
+        "Z 轴平均截距： %4 um\n\n"
+        "【面形误差评估 (Form Error)】\n"
+        "面形 PV 值 (最大起伏)： %5 um\n"
+        "面形 RMS 值 (均方根)： %6 um"
+    ).arg(n)
+        .arg(angleX, 0, 'f', 4)
+        .arg(angleY, 0, 'f', 4)
+        .arg(C, 0, 'f', 3)
+        .arg(PV, 0, 'f', 4)
+        .arg(RMS, 0, 'f', 4);
+
+    QMessageBox::information(this, "三维面形分析报告", report);
+}
+
+
+
 
 // ==========================================
 // ---- 接收底层错误的槽函数 ----
