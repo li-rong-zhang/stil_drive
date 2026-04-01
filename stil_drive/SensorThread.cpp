@@ -31,10 +31,16 @@ void SensorThread::run()
     memset(&acqParam, 0, sizeof(MCHR_tyAcqParam));
 
     acqParam.NumberOfPoints = 0;              // 0 代表无限连续采集
-    acqParam.TriggerFlag = FALSE;             // 内部软件自动触发
-    acqParam.NumberOfBuffers = 2;             // 2个缓冲区 (当DLL写A区时，我们读B区，绝对不卡)
-    acqParam.BufferLength = 200;              // 每次刷新 200 个点 (可自定义，200适合丝滑画图)
-    acqParam.EventEndBuffer = hEventEndBuffer;// 只要填满一个Buffer，DLL就会触发这个事件！
+
+    // 【核心修改 1】：改为 TRUE！意味着引擎启动后会被“冻结”，死等 PMAC 的硬件脉冲
+    acqParam.TriggerFlag = TRUE;
+
+    acqParam.NumberOfBuffers = 2;             // 2个缓冲区 (双缓冲无缝衔接)
+
+    // 【核心修改 2】：改小 Buffer，提高刷新率，防止扫描末尾的数据凑不齐一帧被卡住
+    acqParam.BufferLength = 50;
+
+    acqParam.EventEndBuffer = hEventEndBuffer;
 
     // 3. 为 DLL 分配 2 个独立的数据接收内存池
     float* pAltitudes[2];

@@ -1,5 +1,6 @@
 #pragma once
 #include <QtWidgets/QMainWindow>
+#include <QTcpSocket>
 #include "ui_stil_drive.h"
 
 // 1. Windows 系统头文件
@@ -50,6 +51,12 @@ private slots:
     void handleDataReady(QVector<double> alts, QVector<double> ints);
     void handleError(QString msg);
 
+    // PMAC 通讯相关的槽函数
+    void on_btn_pmac_connect_clicked(); // 点击“连接控制器”按钮
+    void onPmacConnected();             // PMAC 连接成功的回调
+    void onPmacDisconnected();          // PMAC 断开连接的回调
+    void onPmacReadyRead();             // 收到 PMAC 返回数据时的回调
+
 private:
     Ui::stil_driveClass ui;
     MCHR_ID m_sensorID = 0;
@@ -59,4 +66,5 @@ private:
     long long m_totalPoints = 0;
     QFile m_csvFile;
     QTextStream m_csvStream;
+    QTcpSocket* pmacSocket;
 };
