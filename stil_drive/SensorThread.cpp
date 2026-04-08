@@ -33,13 +33,15 @@ void SensorThread::run()
     acqParam.NumberOfPoints = 0;              // 0 代表无限连续采集
 
     // 【核心修改 1】：改为 TRUE！意味着引擎启动后会被“冻结”，死等 PMAC 的硬件脉冲
-    acqParam.TriggerFlag = TRUE;
+    //acqParam.TriggerFlag = FALSE;              // 测试
+    acqParam.TriggerFlag = TRUE;              // 开启外部硬件触发！
+    acqParam.TriggerType = MCHR_TYPE_TRE;     // 触发模式：TRE (Burst模式)
+    acqParam.NumberPointsTRE = 1;             // 每次触发采集 1 个点
+    acqParam.HighLevelOrRisingEdgeActivated = MCHR_RISING_EDGE; // 上升沿(0V变5V)触发
+    // ==========================================
 
-    acqParam.NumberOfBuffers = 2;             // 2个缓冲区 (双缓冲无缝衔接)
-
-    // 【核心修改 2】：改小 Buffer，提高刷新率，防止扫描末尾的数据凑不齐一帧被卡住
-    acqParam.BufferLength = 50;
-
+    acqParam.NumberOfBuffers = 2;             // 2个缓冲区双缓冲
+    acqParam.BufferLength = 1;              // 每次刷新 200 个点
     acqParam.EventEndBuffer = hEventEndBuffer;
 
     // 3. 为 DLL 分配 2 个独立的数据接收内存池

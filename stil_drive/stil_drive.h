@@ -46,6 +46,7 @@ private slots:
     void on_btn_Start_clicked();
     void on_btn_Stop_clicked();
     void on_btn_Analyze_clicked();
+    void on_btn_Send_Cmd_clicked();
 
     // 接收线程数据的槽函数
     void handleDataReady(QVector<double> alts, QVector<double> ints);
