@@ -38,60 +38,62 @@ stil_drive::stil_drive(QWidget* parent)
         int chan = ui.cmb_SyncAxis->itemData(index).toInt();
         QString scriptTemplate;
 
-        if (chan == 2) {
-            // -----------------------------------
-            // 【模式 2】：跟随 C 轴 (主轴旋转扫描)
-            // -----------------------------------
-            ui.lineEdit_Radius->setEnabled(true);
-            ui.lineEdit_Pitch->setEnabled(true);
-
-            scriptTemplate = QString(
-                "abort\n"
-                "Motor[2].ServoCtrl=1\n"   // 假设 C 轴是 2 号电机，请根据实际修改
-                "undefine all\n"
-                "&1 #2->C\n"
-                "Motor[2].JogSpeed=1000\n" // 设定合理的旋转速度
-
-                "Gate3[0].Chan[%1].Equ1Ena=0\n"
-                "Gate3[0].Chan[%1].EquOutPol=0\n"
-                "Gate3[0].Chan[%1].EquOutMask=1\n"
-                "Gate3[0].Chan[%1].EquWrite=1\n"
-
-                // 假设 3600 counts = 1 度
-                "Gate3[0].Chan[%1].CompAdd=3600\n"
-                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+3600\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+1800\n" // 50% 占空比
-
-                "Gate3[0].Chan[%1].Equ1Ena=1\n"
-                "#2 j+\n"
-            ).arg(chan);
-        }
-        else {
-            // -----------------------------------
-            // 【模式 1】：跟随 X 轴 (直线扫描模式)
-            // -----------------------------------
+        // -----------------------------------
+        // 【模式 1】：跟随 X 轴 (直线扫描模式)
+        // -----------------------------------
+        if (chan == 0) {
             ui.lineEdit_Radius->setEnabled(false);
             ui.lineEdit_Pitch->setEnabled(false);
 
             scriptTemplate = QString(
-                "abort\n"
-                "Motor[1].ServoCtrl=1\n"
+                "#1 j/\n"                  // 温和停车
+                "Motor[1].ServoCtrl=1\n"   // 明确 X 轴是 1 号电机
                 "undefine all\n"
                 "&1 #1->X\n"
-                "Motor[1].JogSpeed=1000\n" // 恢复您正常的机床速度
+                // 速度: 1 毫米/秒 (1000Hz 触发频率) = 128000 jog/ms
+                "Motor[1].JogSpeed=128000\n"
 
                 "Gate3[0].Chan[%1].Equ1Ena=0\n"
                 "Gate3[0].Chan[%1].EquOutPol=0\n"
                 "Gate3[0].Chan[%1].EquOutMask=1\n"
                 "Gate3[0].Chan[%1].EquWrite=1\n"
 
-                // 触发间距: 1000 count (配合 JogSpeed=1000，频率为 1000Hz)
-                "Gate3[0].Chan[%1].CompAdd=1000\n"
-                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+1000\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+500\n" // 脉冲宽度 500 count
+                // 【精准触发】: 1微米 = 32000 counts
+                "Gate3[0].Chan[%1].CompAdd=32000\n"
+                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+32000\n"
+                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+16000\n" 
 
                 "Gate3[0].Chan[%1].Equ1Ena=1\n"
                 "#1 j+\n"
+            ).arg(chan);
+        }
+        // -----------------------------------
+        // 【模式 2】：跟随 C 轴 (主轴旋转扫描)
+        // -----------------------------------
+        else if (chan == 2) {
+            ui.lineEdit_Radius->setEnabled(true);
+            ui.lineEdit_Pitch->setEnabled(true);
+
+            scriptTemplate = QString(
+                "#5 j/\n" 
+                "Motor[5].ServoCtrl=1\n"
+                "undefine all\n"
+                "&1 #5->C\n"
+                // 速度: 100 度/秒 (1000Hz 触发频率) = 163840 jog/ms
+                "Motor[5].JogSpeed=163840\n"
+
+                "Gate3[0].Chan[%1].Equ1Ena=0\n"
+                "Gate3[0].Chan[%1].EquOutPol=0\n"
+                "Gate3[0].Chan[%1].EquOutMask=1\n"
+                "Gate3[0].Chan[%1].EquWrite=1\n"
+
+                // 【精准触发】: 0.1度 = 40960 counts
+                "Gate3[0].Chan[%1].CompAdd=40960\n"
+                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+40960\n"
+                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+20480\n" // 50% 占空比
+
+                "Gate3[0].Chan[%1].Equ1Ena=1\n"
+                "#5 j+\n"
             ).arg(chan);
         }
 
@@ -251,7 +253,7 @@ void stil_drive::on_btn_Start_clicked()
     ui.btn_Stop->setEnabled(true);
 
     // ==========================================
-    // 【核心联动】：发送 UI 文本框中的运动及触发代码给 PMAC
+    // 【核心联动】：发送UI文本框中的运动及触发代码给 PMAC
     // ==========================================
     ui.textBrowser_pmac_log->append("正在下发硬件脉冲同步指令...");
     QString cmd = ui.textEdit_pmac_script->toPlainText().trimmed();
@@ -278,10 +280,9 @@ void stil_drive::on_btn_Stop_clicked()
     // 急停机床并关闭硬件脉冲，防止误触发
     if (pmacSocket && pmacSocket->state() == QAbstractSocket::ConnectedState) {
         QString stopCmd =
-            "abort\n"
-            "#1j/ #3j/\n"                    // 保持闭环锁死
-            "Gate3[0].Chan[0].Equ1Ena=0\n"   // 关 X 轴触发
-            "Gate3[0].Chan[2].Equ1Ena=0\n";  // 关 C 轴触发
+            "#1j/ #2j/ #3j/ #4j/ #5j/\n"     
+            "Gate3[0].Chan[0].Equ1Ena=0\n"   
+            "Gate3[0].Chan[2].Equ1Ena=0\n";  
         pmacSocket->write(stopCmd.toUtf8());
         ui.textBrowser_pmac_log->append("<font color='red'>已发送停止运动及关闭脉冲指令。</font>");
     }
