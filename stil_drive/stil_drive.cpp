@@ -30,71 +30,106 @@ stil_drive::stil_drive(QWidget* parent)
     // --- 1.2 初始化 PMAC 同步轴下拉框及动态脚本生成 ---
     ui.cmb_SyncAxis->addItem("跟随 X 轴 (Chan 0)", 0);
     ui.cmb_SyncAxis->addItem("跟随 C 轴 (Chan 2)", 2);
+    ui.cmb_SyncAxis->addItem("球面纬线扫描 (Chan 2)", 3);
 
     // =========================================================================
     // 绑定下拉框改变信号：自动生成对应的 PMAC 底层 EQU 脉冲配置代码
+    // 运行逻辑：根据轴映射 X(#1), Y(#2), Z(#3), B(#4), C(#5) 进行精准触发
     // =========================================================================
     connect(ui.cmb_SyncAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int index) {
-        int chan = ui.cmb_SyncAxis->itemData(index).toInt();
+        // 获取当前模式 (0:X轴直线, 2:C轴螺旋, 3:球面纬线)
+        int mode = ui.cmb_SyncAxis->itemData(index).toInt();
         QString scriptTemplate;
+
+        // 硬件通道映射：X轴用 Chan 0，C轴/旋转相关模式都用 Chan 2
+        int targetChan = (mode == 0) ? 0 : 2;
 
         // -----------------------------------
         // 【模式 1】：跟随 X 轴 (直线扫描模式)
         // -----------------------------------
-        if (chan == 0) {
+        if (mode == 0) {
             ui.lineEdit_Radius->setEnabled(false);
             ui.lineEdit_Pitch->setEnabled(false);
 
             scriptTemplate = QString(
-                "#1 j/\n"                  // 温和停车
-                "Motor[1].ServoCtrl=1\n"   // 明确 X 轴是 1 号电机
+                "#1 j/\n"                         // 温和停止
+                "Motor[1].ServoCtrl=1\n"
                 "undefine all\n"
                 "&1 #1->X\n"
-                // 速度: 1 毫米/秒 (1000Hz 触发频率) = 128000 jog/ms
-                "Motor[1].JogSpeed=128000\n"
+                "Motor[1].JogSpeed=128000\n"       // 1mm/s
 
                 "Gate3[0].Chan[%1].Equ1Ena=0\n"
                 "Gate3[0].Chan[%1].EquOutPol=0\n"
                 "Gate3[0].Chan[%1].EquOutMask=1\n"
                 "Gate3[0].Chan[%1].EquWrite=1\n"
 
-                // 【精准触发】: 1微米 = 32000 counts
-                "Gate3[0].Chan[%1].CompAdd=32000\n"
+                "Gate3[0].Chan[%1].CompAdd=32000\n" // 1微米
                 "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+32000\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+16000\n" 
+                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+16000\n"
 
                 "Gate3[0].Chan[%1].Equ1Ena=1\n"
                 "#1 j+\n"
-            ).arg(chan);
+            ).arg(targetChan);
         }
         // -----------------------------------
-        // 【模式 2】：跟随 C 轴 (主轴旋转扫描)
+        // 【模式 2】：跟随 C 轴 (螺旋线扫描)
         // -----------------------------------
-        else if (chan == 2) {
+        else if (mode == 2) {
             ui.lineEdit_Radius->setEnabled(true);
             ui.lineEdit_Pitch->setEnabled(true);
 
+            double pitch_um = ui.lineEdit_Pitch->text().toDouble();
+            if (pitch_um <= 0) pitch_um = 10.0;
+            long x_jog_speed = (long)((pitch_um / 3.6) * 128.0);
+
             scriptTemplate = QString(
-                "#5 j/\n" 
+                "#1 j/ #5 j/\n"
+                "Motor[1].ServoCtrl=1\n"
+                "Motor[5].ServoCtrl=1\n"
+                "&1 #1->X #5->C\n"
+
+                "Motor[5].JogSpeed=163840\n"       // C轴 100度/s
+                "Motor[1].JogSpeed=%1\n"           // X轴进给速度
+
+                "Gate3[0].Chan[%2].Equ1Ena=0\n"
+                "Gate3[0].Chan[%2].EquOutPol=0\n"
+                "Gate3[0].Chan[%2].EquOutMask=1\n"
+                "Gate3[0].Chan[%2].EquWrite=1\n"
+
+                "Gate3[0].Chan[%2].CompAdd=40960\n" // 0.1度
+                "Gate3[0].Chan[%2].CompA=Gate3[0].Chan[%2].ServoCapt+40960\n"
+                "Gate3[0].Chan[%2].CompB=Gate3[0].Chan[%2].CompA+20480\n"
+
+                "Gate3[0].Chan[%2].Equ1Ena=1\n"
+                "#1 j- #5 j+\n"                    // X和C联动形成螺旋
+            ).arg(x_jog_speed).arg(targetChan);
+        }
+        // -----------------------------------
+        // 【模式 3】：球面纬线扫描 (单纯旋转)
+        // -----------------------------------
+        else if (mode == 3) {
+            ui.lineEdit_Radius->setEnabled(true);  // 依然允许输入半径，方便数据标注
+            ui.lineEdit_Pitch->setEnabled(false); // 纬线扫描不需要螺距进给
+
+            scriptTemplate = QString(
+                "#5 j/\n"                          // 仅停止 C 轴
                 "Motor[5].ServoCtrl=1\n"
                 "undefine all\n"
                 "&1 #5->C\n"
-                // 速度: 100 度/秒 (1000Hz 触发频率) = 163840 jog/ms
-                "Motor[5].JogSpeed=163840\n"
+                "Motor[5].JogSpeed=163840\n"       // 保持 100度/s 的匀速旋转
 
                 "Gate3[0].Chan[%1].Equ1Ena=0\n"
                 "Gate3[0].Chan[%1].EquOutPol=0\n"
                 "Gate3[0].Chan[%1].EquOutMask=1\n"
                 "Gate3[0].Chan[%1].EquWrite=1\n"
 
-                // 【精准触发】: 0.1度 = 40960 counts
-                "Gate3[0].Chan[%1].CompAdd=40960\n"
+                "Gate3[0].Chan[%1].CompAdd=40960\n" // 0.1度触发
                 "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+40960\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+20480\n" // 50% 占空比
+                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+20480\n"
 
                 "Gate3[0].Chan[%1].Equ1Ena=1\n"
-                "#5 j+\n"
-            ).arg(chan);
+                "#5 j+\n"                          // 仅旋转 C 轴，X轴静止
+            ).arg(targetChan);
         }
 
         ui.textEdit_pmac_script->setPlainText(scriptTemplate);
@@ -248,7 +283,7 @@ void stil_drive::on_btn_Start_clicked()
     connect(m_thread, &SensorThread::errorOccurred, this, &stil_drive::handleError);
     m_thread->start();
 
-    ui.lbl_Status->setText("状态：等待硬件触发脉冲 (运动由NC软件控制)...");
+    ui.lbl_Status->setText("状态：等待硬件触发脉冲...");
     ui.btn_Start->setEnabled(false);
     ui.btn_Stop->setEnabled(true);
 
@@ -303,14 +338,15 @@ void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
     double window_width = 1000.0;
     QString unit_str = "um";
 
-    // 【模式 A：直线跟随解算】
+    // =========================================================================
+    // 【模式 1】：直线跟随解算 (跟随 X 轴)
+    // =========================================================================
     if (syncMode == 0) {
-        double pulse_pitch_um = 1.0;  // 假设设置的 CompAdd=1000 对应物理 1um
-        int direction = 1;
+        double pulse_pitch_um = 1.0;  // 严格对应底层设置的 1um 触发间距
         double start_X = 0.0;
 
         for (int i = 0; i < dataSize; i++) {
-            double simulated_X = start_X + (m_totalPoints + i) * pulse_pitch_um * direction;
+            double simulated_X = start_X + (m_totalPoints + i) * pulse_pitch_um;
             xData[i] = simulated_X;
 
             if (m_csvFile.isOpen()) {
@@ -318,52 +354,106 @@ void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
             }
             if (i == dataSize - 1) current_display_X = simulated_X;
         }
-        window_width = 1000 * pulse_pitch_um;
+        window_width = 1000 * pulse_pitch_um; // 图表显示最近 1000 个点的范围
         unit_str = "um";
     }
-    // 【模式 B：螺旋线跟随解算】
+    // =========================================================================
+    // 【模式 2】：螺旋线跟随解算 (跟随 C 轴 + X 轴联动)
+    // =========================================================================
     else if (syncMode == 2) {
-        double pulse_angle_deg = 0.1; // 假设 CompAdd=100 对应 0.1度
+        double pulse_angle_deg = 0.1; // 严格对应底层设置的 0.1 度触发间距
 
-        // 从 UI 提取对应的半径和螺距，需与发给 PMAC 的代码逻辑相吻合
-        double start_radius_um = ui.lineEdit_Radius->text().toDouble();
-        if (start_radius_um <= 0) start_radius_um = 10000.0; // 默认 10mm
+        // 1. 提取并统一单位 (将界面的 mm 转换为 um)
+        double r_start_mm = ui.lineEdit_Radius->text().toDouble();
+        double start_radius_um = r_start_mm * 1000.0;
 
         double pitch_per_rev_um = ui.lineEdit_Pitch->text().toDouble();
         if (pitch_per_rev_um <= 0) pitch_per_rev_um = 10.0;  // 默认每转进给 10um
 
+        // 设定过圆心扫描距离
+        double r_over_um = 1000.0; // 过圆心 1mm (1000um)
+
+        // 2. 自动停止逻辑校验
+        double total_angle_needed = ((start_radius_um + r_over_um) / pitch_per_rev_um) * 360.0;
+        double current_total_angle = m_totalPoints * pulse_angle_deg;
+
+        if (current_total_angle >= total_angle_needed) {
+            on_btn_Stop_clicked(); // 达到目标圈数，自动急停
+            ui.lbl_Status->setText(QString("状态：螺旋扫描完成！已自动停止。"));
+            return; // 丢弃多余的尾部数据
+        }
+
+        // 3. 数据极坐标转直角坐标解算
         for (int i = 0; i < dataSize; i++) {
             double current_angle_deg = (m_totalPoints + i) * pulse_angle_deg;
             double revolutions = current_angle_deg / 360.0;
 
-            // 实时半径 = 初始半径 - 圈数 * 螺距
+            // 实时半径 = 初始半径 - 圈数 * 螺距 
+            // (注意：这里允许半径变为负数，以实现完美的过圆心计算)
             double current_radius = start_radius_um - (revolutions * pitch_per_rev_um);
-            if (current_radius < 0) current_radius = 0.0;
 
-            // 极坐标转直角坐标
+            // 极坐标转直角坐标 (X, Y)
             double angle_rad = current_angle_deg * M_PI / 180.0;
             double simulated_X = current_radius * std::cos(angle_rad);
             double simulated_Y = current_radius * std::sin(angle_rad);
 
-            xData[i] = current_angle_deg; // 画图横坐标以“度数”展开显示
+            xData[i] = current_angle_deg; // 画图横坐标依然以“度数”展开显示，方便观察形貌
 
             if (m_csvFile.isOpen()) {
+                // CSV 导出真实的 X、Y 直角坐标用于后期 Eigen 面形拟合
                 m_csvStream << simulated_X << "," << simulated_Y << "," << alts[i] << "," << ints[i] << "\n";
             }
             if (i == dataSize - 1) current_display_X = current_angle_deg;
         }
-        window_width = 1000 * pulse_angle_deg;
+        window_width = 360.0; // 螺旋线图表默认显示最近一圈 (360度) 的波形
+        unit_str = "度";
+    }
+    // =========================================================================
+      // 【模式 3】：球面纬线扫描 (跟随 C 轴单纯旋转)
+      // =========================================================================
+    else if (syncMode == 3) {
+        double pulse_angle_deg = 0.1; // 0.1 度触发一次
+
+        // 【核心设定】：设定目标角度为 370 度 (360度主体 + 10度重叠区)
+        double target_angle_deg = 370.0;
+
+        // 1. 自动停止逻辑校验
+        double current_total_angle = m_totalPoints * pulse_angle_deg;
+        if (current_total_angle >= target_angle_deg) {
+            on_btn_Stop_clicked(); // 达到 370 度，自动急停
+            ui.lbl_Status->setText(QString("状态：纬线扫描完成！总计旋转 %1 度，已自动停止。").arg(target_angle_deg));
+            return; // 丢弃多余的尾部数据，防止数组越界
+        }
+
+        // 2. 数据处理与导出
+        for (int i = 0; i < dataSize; i++) {
+            double current_angle_deg = (m_totalPoints + i) * pulse_angle_deg;
+            xData[i] = current_angle_deg;
+
+            if (m_csvFile.isOpen()) {
+                // 纬线扫描只需记录角度和对应的高度
+                m_csvStream << current_angle_deg << ",0.0," << alts[i] << "," << ints[i] << "\n";
+            }
+            if (i == dataSize - 1) current_display_X = current_angle_deg;
+        }
+
+        // 图表显示设置：为了能一眼看清重叠效果，把视窗拉宽到 370 度
+        window_width = target_angle_deg;
         unit_str = "度";
     }
 
-    // 刷新波形图
+    // =========================================================================
+    // 刷新 QCustomPlot 波形图
+    // =========================================================================
     ui.plot_Widget->graph(0)->addData(xData, alts);
     m_totalPoints += dataSize;
 
+    // 动态移动 X 轴视窗，实现心电图般的滚动效果
     ui.plot_Widget->xAxis->setRange(current_display_X - window_width, current_display_X, Qt::AlignRight);
-    ui.plot_Widget->graph(0)->rescaleValueAxis(true);
+    ui.plot_Widget->graph(0)->rescaleValueAxis(true); // Y 轴高度自动缩放
     ui.plot_Widget->replot();
 
+    // 更新底部状态栏
     ui.lbl_Status->setText(QString("状态：飞拍中 | 位置: %1 %2 | 高度: %3 um")
         .arg(current_display_X, 0, 'f', 2).arg(unit_str).arg(alts.last(), 0, 'f', 2));
 }
