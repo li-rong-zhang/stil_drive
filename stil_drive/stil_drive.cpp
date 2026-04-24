@@ -1,5 +1,5 @@
-﻿#include "stil_drive.h"
-#include <QMessageBox>
+﻿`   12QA43WS54ED6RFT5GYUHIJOK89LP0[-;]'=\784'#include "stil_drive.h"
+#include <QMessageBox>+
 #include <QDebug>
 #include <QDir>
 #include <QDateTime>
@@ -8,8 +8,90 @@
 #include <Eigen/Dense>
 
 // 必须加此宏以使用 M_PI，且必须放在 cmath 前面
-#define _USE_MATH_DEFINES 
+#define _USE_MATH_DEFINES
 #include <cmath>
+
+// =========================================================================
+// 辅助函数：计算非球面 Z 值
+// =========================================================================
+static double calcAsphericZ(double r_mm, double R_mm, double k,
+    double A4, double A6, double A8, double A10, double A12)
+{
+    if (R_mm <= 0) return 0;
+
+    double c = 1.0 / R_mm;  // 曲率
+    double r2 = r_mm * r_mm;
+    double c2 = c * c;
+
+    // 圆锥面部分: Z_conic = c*r² / (1 + sqrt(1 - (1+k)*c²*r²))
+    double sqrt_term = 1.0 - (1.0 + k) * c2 * r2;
+    double z_conic = 0.0;
+
+    if (sqrt_term > 1e-10) {
+        z_conic = (c * r2) / (1.0 + std::sqrt(sqrt_term));
+    }
+
+    // 高次项部分 (单位: mm，需要转换为 µm)
+    double z_high = A4 * std::pow(r_mm, 4)
+        + A6 * std::pow(r_mm, 6)
+        + A8 * std::pow(r_mm, 8)
+        + A10 * std::pow(r_mm, 10)
+        + A12 * std::po
+        (r_mm, 12);
+
+    // 总 Z 值 (圆锥面部分转换为 µm)
+    return z_conic * 1000.0 + z_high;
+}
+
+// =========================================================================
+// 辅助函数：根据斜率约束计算安全步距
+// =========================================================================
+static double calcSafeStepSize(double r_mm, double R_mm, double k,
+    double A4, double A6, double A8, double A10, double A12,
+    double max_z_change_um = 100.0)
+{
+    if (R_mm <= 0) return 10.0; // 默认 10µm
+
+    double c = 1.0 / R_mm;
+    double c2 = c * c;
+    double r2 = r_mm * r_mm;
+    double r3 = r2 * r_mm;
+    double r5 = r3 * r2;
+    double r7 = r5 * r2;
+    double r9 = r7 * r2;
+
+    // 计算圆锥面部分的斜率 dZ_conic/dr
+    double sqrt_term = 1.0 - (1.0 + k) * c2 * r2;
+    double dZ_conic_dr = 0.0;
+
+    if (sqrt_term > 1e-10) {
+        double S = std::sqrt(sqrt_term);
+        // d/dr [c*r²/(1+S)] 的解析导数
+        dZ_conic_dr = (2.0 * c * r_mm * (1.0 + S) - c * r3 * (1.0 + k) * c2 * r_mm / S)
+            / ((1.0 + S) * (1.0 + S));
+    }
+
+    // 高次项斜率
+    double dZ_high_dr = 4.0 * A4 * r3
+        + 6.0 * A6 * r5
+        + 8.0 * A8 * r7
+        + 10.0 * A10 * r9
+        + 12.0 * A12 * r2 * r9;
+
+    // 总斜率 (dZ/dr 的单位: µm/mm = µm/µm * 1000)
+    double total_slope = std::abs((dZ_conic_dr * 1000.0 + dZ_high_dr));
+
+    if (total_slope < 0.001) total_slope = 0.001; // 避免除零
+
+    // 安全步距: max_z_change_um / |dZ/dr|
+    double safe_step_um = max_z_change_um / total_slope;
+
+    // 限制在合理范围内
+    if (safe_step_um < 0.5) safe_step_um = 0.5;   // 最小 0.5µm
+    if (safe_step_um > 50.0) safe_step_um = 50.0; // 最大 50µm
+
+    return safe_step_um;
+}
 
 // =========================================================================
 // 1. 构造函数与初始化
@@ -31,18 +113,22 @@ stil_drive::stil_drive(QWidget* parent)
     ui.cmb_SyncAxis->addItem("跟随 X 轴 (Chan 0)", 0);
     ui.cmb_SyncAxis->addItem("跟随 C 轴 (Chan 2)", 2);
     ui.cmb_SyncAxis->addItem("球面纬线扫描 (Chan 2)", 3);
+    ui.cmb_SyncAxis->addItem("非球面母线扫描", 4);
 
     // =========================================================================
     // 绑定下拉框改变信号：自动生成对应的 PMAC 底层 EQU 脉冲配置代码
-    // 运行逻辑：根据轴映射 X(#1), Y(#2), Z(#3), B(#4), C(#5) 进行精准触发
     // =========================================================================
     connect(ui.cmb_SyncAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int index) {
-        // 获取当前模式 (0:X轴直线, 2:C轴螺旋, 3:球面纬线)
         int mode = ui.cmb_SyncAxis->itemData(index).toInt();
         QString scriptTemplate;
 
-        // 硬件通道映射：X轴用 Chan 0，C轴/旋转相关模式都用 Chan 2
-        int targetChan = (mode == 0) ? 0 : 2;
+        // 【核心拓扑映射】
+        // 模式 0 (X轴): 第 1 块 24E3 板 (Gate 0) 的第 1 个通道 (Chan 0)
+        // 模式 2/3 (C轴): 第 2 块 24E3 板 (Gate 1) 的第 1 个通道 (Chan 0)
+        //int targetGate = (mode == 0) ? 0 : 1;
+        //int targetChan = 0;
+        int targetGate = 1;
+        int targetChan = 0;
 
         // -----------------------------------
         // 【模式 1】：跟随 X 轴 (直线扫描模式)
@@ -52,24 +138,26 @@ stil_drive::stil_drive(QWidget* parent)
             ui.lineEdit_Pitch->setEnabled(false);
 
             scriptTemplate = QString(
-                "#1 j/\n"                         // 温和停止
+                "abort\n"
+                "#1 j/\n"
                 "Motor[1].ServoCtrl=1\n"
                 "undefine all\n"
                 "&1 #1->X\n"
-                "Motor[1].JogSpeed=128000\n"       // 1mm/s
+                "Motor[1].JogSpeed=128000\n" // 1mm/s
 
-                "Gate3[0].Chan[%1].Equ1Ena=0\n"
-                "Gate3[0].Chan[%1].EquOutPol=0\n"
-                "Gate3[0].Chan[%1].EquOutMask=1\n"
-                "Gate3[0].Chan[%1].EquWrite=1\n"
+                // 注意这里的动态参数：Gate3[%1].Chan[%2]
+                "Gate3[%1].Chan[%2].Equ1Ena=0\n"
+                "Gate3[%1].Chan[%2].EquOutPol=0\n"
+                "Gate3[%1].Chan[%2].EquOutMask=1\n"
+                "Gate3[%1].Chan[%2].EquWrite=1\n"
 
-                "Gate3[0].Chan[%1].CompAdd=32000\n" // 1微米
-                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+32000\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+16000\n"
+                "Gate3[%1].Chan[%2].CompAdd=100000\n" // 1微米
+                "Gate3[%1].Chan[%2].CompA=Gate3[%1].Chan[%2].ServoCapt+100000\n"
+                "Gate3[%1].Chan[%2].CompB=Gate3[%1].Chan[%2].CompA+50000\n"
 
-                "Gate3[0].Chan[%1].Equ1Ena=1\n"
+                "Gate3[%1].Chan[%2].Equ1Ena=1\n"
                 "#1 j+\n"
-            ).arg(targetChan);
+            ).arg(targetGate).arg(targetChan);
         }
         // -----------------------------------
         // 【模式 2】：跟随 C 轴 (螺旋线扫描)
@@ -80,56 +168,161 @@ stil_drive::stil_drive(QWidget* parent)
 
             double pitch_um = ui.lineEdit_Pitch->text().toDouble();
             if (pitch_um <= 0) pitch_um = 10.0;
-            long x_jog_speed = (long)((pitch_um / 3.6) * 128.0);
+            long x_jog_speed = (long)((pitch_um / 0.36) * 128.0);
 
             scriptTemplate = QString(
+                "abort\n"
                 "#1 j/ #5 j/\n"
                 "Motor[1].ServoCtrl=1\n"
                 "Motor[5].ServoCtrl=1\n"
                 "&1 #1->X #5->C\n"
 
-                "Motor[5].JogSpeed=163840\n"       // C轴 100度/s
-                "Motor[1].JogSpeed=%1\n"           // X轴进给速度
+                "Motor[5].JogSpeed=1638400\n" // C轴 1000度/s
+                "Motor[1].JogSpeed=%3\n"     // X轴进给速度
 
-                "Gate3[0].Chan[%2].Equ1Ena=0\n"
-                "Gate3[0].Chan[%2].EquOutPol=0\n"
-                "Gate3[0].Chan[%2].EquOutMask=1\n"
-                "Gate3[0].Chan[%2].EquWrite=1\n"
+                "Gate3[%1].Chan[%2].Equ1Ena=0\n"
+                "Gate3[%1].Chan[%2].EquOutPol=0\n"
+                "Gate3[%1].Chan[%2].EquOutMask=1\n"
+                "Gate3[%1].Chan[%2].EquWrite=1\n"
 
-                "Gate3[0].Chan[%2].CompAdd=40960\n" // 0.1度
-                "Gate3[0].Chan[%2].CompA=Gate3[0].Chan[%2].ServoCapt+40960\n"
-                "Gate3[0].Chan[%2].CompB=Gate3[0].Chan[%2].CompA+20480\n"
+                "Gate3[%1].Chan[%2].CompAdd=204800\n" // 0.5度
+                "Gate3[%1].Chan[%2].CompA=Gate3[%1].Chan[%2].ServoCapt+204800\n"
+                "Gate3[%1].Chan[%2].CompB=Gate3[%1].Chan[%2].CompA+102400\n"
 
-                "Gate3[0].Chan[%2].Equ1Ena=1\n"
-                "#1 j- #5 j+\n"                    // X和C联动形成螺旋
-            ).arg(x_jog_speed).arg(targetChan);
+                "Gate3[%1].Chan[%2].Equ1Ena=1\n"
+                "#1 j- #5 j+\n"
+            ).arg(targetGate).arg(targetChan).arg(x_jog_speed);
         }
         // -----------------------------------
         // 【模式 3】：球面纬线扫描 (单纯旋转)
         // -----------------------------------
         else if (mode == 3) {
-            ui.lineEdit_Radius->setEnabled(true);  // 依然允许输入半径，方便数据标注
-            ui.lineEdit_Pitch->setEnabled(false); // 纬线扫描不需要螺距进给
+            ui.lineEdit_Radius->setEnabled(true);
+            ui.lineEdit_Pitch->setEnabled(false);
 
             scriptTemplate = QString(
-                "#5 j/\n"                          // 仅停止 C 轴
+                "#5 j/\n"
                 "Motor[5].ServoCtrl=1\n"
                 "undefine all\n"
                 "&1 #5->C\n"
-                "Motor[5].JogSpeed=163840\n"       // 保持 100度/s 的匀速旋转
+                "Motor[5].JogSpeed=163840\n"
 
-                "Gate3[0].Chan[%1].Equ1Ena=0\n"
-                "Gate3[0].Chan[%1].EquOutPol=0\n"
-                "Gate3[0].Chan[%1].EquOutMask=1\n"
-                "Gate3[0].Chan[%1].EquWrite=1\n"
+                "Gate3[%1].Chan[%2].Equ1Ena=0\n"
+                "Gate3[%1].Chan[%2].EquOutPol=0\n"
+                "Gate3[%1].Chan[%2].EquOutMask=1\n"
+                "Gate3[%1].Chan[%2].EquWrite=1\n"
 
-                "Gate3[0].Chan[%1].CompAdd=40960\n" // 0.1度触发
-                "Gate3[0].Chan[%1].CompA=Gate3[0].Chan[%1].ServoCapt+40960\n"
-                "Gate3[0].Chan[%1].CompB=Gate3[0].Chan[%1].CompA+20480\n"
+                "Gate3[%1].Chan[%2].CompAdd=40960\n" // 0.1度
+                "Gate3[%1].Chan[%2].CompA=Gate3[%1].Chan[%2].ServoCapt+40960\n"
+                "Gate3[%1].Chan[%2].CompB=Gate3[%1].Chan[%2].CompA+20480\n"
 
-                "Gate3[0].Chan[%1].Equ1Ena=1\n"
-                "#5 j+\n"                          // 仅旋转 C 轴，X轴静止
-            ).arg(targetChan);
+                "Gate3[%1].Chan[%2].Equ1Ena=1\n"
+                "#5 j+\n"
+            ).arg(targetGate).arg(targetChan);
+        }
+        // -----------------------------------
+        // 【模式 4】：非球面母线扫描 (带Z轴轨迹跟随)
+        // -----------------------------------
+        else if (mode == 4) {
+            ui.lineEdit_Radius->setEnabled(true);
+            ui.lineEdit_Pitch->setEnabled(false);
+
+            bool followZ = ui.chk_FollowZ->isChecked();
+
+            // 读取非球面参数
+            double R_mm = ui.lineEdit_Aspheric_R->text().toDouble();
+            double k = ui.lineEdit_Aspheric_K->text().toDouble();
+            double A4 = ui.lineEdit_Aspheric_A4->text().toDouble();
+            double A6 = ui.lineEdit_Aspheric_A6->text().toDouble();
+            double A8 = ui.lineEdit_Aspheric_A8->text().toDouble();
+            double A10 = ui.lineEdit_Aspheric_A10->text().toDouble();
+            double A12 = ui.lineEdit_Aspheric_A12->text().toDouble();
+
+            if (R_mm <= 0) R_mm = 100.0;
+
+            // 起始半径 (µm) 和扫描范围 (µm)
+            double start_radius_um = ui.lineEdit_Radius->text().toDouble();
+            double scan_range_um = ui.lineEdit_Aspheric_Range->text().toDouble();
+            if (scan_range_um <= 0) scan_range_um = 50000.0;
+
+            // 根据斜率计算安全步距
+            double step_um = calcSafeStepSize(start_radius_um / 1000.0, R_mm, k, A4, A6, A8, A10, A12);
+
+            if (followZ) {
+                // ========== Z轴轨迹跟随模式 ==========
+                // 生成带Z轴联动的PMAC脚本
+                // 使用IMOV增量移动命令
+
+                // 计算轨迹点数量
+                int num_points = (int)(scan_range_um / step_um) + 1;
+                if (num_points > 5000) num_points = 5000; // 限制最大点数
+
+                double prev_z_um = calcAsphericZ(start_radius_um / 1000.0, R_mm, k, A4, A6, A8, A10, A12);
+
+                QString trajectoryScript = "abort\n";
+                trajectoryScript += "#1j/ #3j/\n";  // 停止X和Z轴
+                trajectoryScript += "Motor[1].ServoCtrl=1\n";
+                trajectoryScript += "Motor[3].ServoCtrl=1\n";  // Z轴
+                trajectoryScript += "undefine all\n";
+                trajectoryScript += "&1 #1->X #3->Z\n";
+                trajectoryScript += "Motor[1].JogSpeed=128000\n";
+                trajectoryScript += "Motor[3].JogSpeed=128000\n";
+
+                // 初始位置归零
+                trajectoryScript += "X1=0 Z3=0\n";
+                trajectoryScript += "IMOV\n";
+                trajectoryScript += "Dwell=200\n";
+
+                // 生成轨迹
+                for (int i = 1; i < num_points; i++) {
+                    double r_um = start_radius_um + i * step_um;
+                    double r_mm = r_um / 1000.0;
+                    double z_um = calcAsphericZ(r_mm, R_mm, k, A4, A6, A8, A10, A12);
+                    double dz_um = z_um - prev_z_um;
+
+                    // X增量 (µm), Z增量 (µm)
+                    // PMAC中单位通常是 counts，需要转换
+                    // 假设 1µm = 100000 counts
+                    long dx_counts = (long)(step_um * 100000.0);
+                    long dz_counts = (long)(dz_um * 100000.0);  // Z轴同样的分辨率
+
+                    trajectoryScript += QString("X1=%1 Z3=%2 IMOV Dwell=50\n").arg(dx_counts).arg(dz_counts);
+
+                    prev_z_um = z_um;
+                }
+
+                // 触发急停
+                trajectoryScript += "abort\n";
+                trajectoryScript += "Gate3[1].Chan[0].Equ1Ena=0\n";
+
+                scriptTemplate = trajectoryScript;
+
+                ui.textBrowser_pmac_log->append(QString("<font color='blue'>[Z轴跟随] 步距: %1 µm, 轨迹点数: %2</font>")
+                    .arg(step_um, 0, 'f', 2).arg(num_points));
+            } else {
+                // ========== 纯X轴扫描模式 ==========
+                // 不带Z轴跟随，直接用X轴触发
+                scriptTemplate = QString(
+                    "abort\n"
+                    "#1 j/\n"
+                    "Motor[1].ServoCtrl=1\n"
+                    "undefine all\n"
+                    "&1 #1->X\n"
+                    "Motor[1].JogSpeed=128000\n"
+
+                    "Gate3[%1].Chan[%2].Equ1Ena=0\n"
+                    "Gate3[%1].Chan[%2].EquOutPol=0\n"
+                    "Gate3[%1].Chan[%2].EquOutMask=1\n"
+                    "Gate3[%1].Chan[%2].EquWrite=1\n"
+
+                    "Gate3[%1].Chan[%2].CompAdd=%3\n"
+                    "Gate3[%1].Chan[%2].CompA=Gate3[%1].Chan[%2].ServoCapt+%3\n"
+                    "Gate3[%1].Chan[%2].CompB=Gate3[%1].Chan[%2].CompA+%4\n"
+
+                    "Gate3[%1].Chan[%2].Equ1Ena=1\n"
+                    "#1 j+\n"
+                ).arg(targetGate).arg(targetChan).arg((long)(step_um * 100000.0)).arg((long)(step_um * 50000.0));
+            }
         }
 
         ui.textEdit_pmac_script->setPlainText(scriptTemplate);
@@ -273,7 +466,13 @@ void stil_drive::on_btn_Start_clicked()
         m_csvFile.setFileName(fileName);
         if (m_csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             m_csvStream.setDevice(&m_csvFile);
-            m_csvStream << "X_Axis(um/deg),Y_Axis(um),Z_Altitude(um),Intensity(%)\n";
+            int syncMode = ui.cmb_SyncAxis->currentData().toInt();
+            if (syncMode == 4) {
+                // 非球面母线扫描：额外输出理论Z值和偏差
+                m_csvStream << "X_Axis(um),Y_Axis(um),Z_Measured(um),Z_Theory(um),Z_Deviation(um),Intensity(%)\n";
+            } else {
+                m_csvStream << "X_Axis(um/deg),Y_Axis(um),Z_Altitude(um),Intensity(%)\n";
+            }
         }
     }
 
@@ -315,11 +514,11 @@ void stil_drive::on_btn_Stop_clicked()
     // 急停机床并关闭硬件脉冲，防止误触发
     if (pmacSocket && pmacSocket->state() == QAbstractSocket::ConnectedState) {
         QString stopCmd =
-            "#1j/ #2j/ #3j/ #4j/ #5j/\n"     
-            "Gate3[0].Chan[0].Equ1Ena=0\n"   
-            "Gate3[0].Chan[2].Equ1Ena=0\n";  
+            "#1j/ #2j/ #3j/ #4j/ #5j/\n"
+            "Gate3[0].Chan[0].Equ1Ena=0\n"   // 关 X 轴触发 (第一块板)
+            "Gate3[1].Chan[0].Equ1Ena=0\n";  // 关 C 轴触发 (第二块板)
         pmacSocket->write(stopCmd.toUtf8());
-        ui.textBrowser_pmac_log->append("<font color='red'>已发送停止运动及关闭脉冲指令。</font>");
+        ui.textBrowser_pmac_log->append("<font color='red'>已安全制动全轴并撤销触发使能。</font>");
     }
 }
 
@@ -361,7 +560,9 @@ void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
     // 【模式 2】：螺旋线跟随解算 (跟随 C 轴 + X 轴联动)
     // =========================================================================
     else if (syncMode == 2) {
-        double pulse_angle_deg = 0.1; // 严格对应底层设置的 0.1 度触发间距
+        // 【关键修改】：必须和底层的 CompAdd 严格对齐！
+        // 因为底层现在是每 0.5 度打一枪，软件这里必须按 0.5 度来推算当前转到了哪里
+        double pulse_angle_deg = 0.5;
 
         // 1. 提取并统一单位 (将界面的 mm 转换为 um)
         double r_start_mm = ui.lineEdit_Radius->text().toDouble();
@@ -370,17 +571,16 @@ void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
         double pitch_per_rev_um = ui.lineEdit_Pitch->text().toDouble();
         if (pitch_per_rev_um <= 0) pitch_per_rev_um = 10.0;  // 默认每转进给 10um
 
-        // 设定过圆心扫描距离
         double r_over_um = 1000.0; // 过圆心 1mm (1000um)
 
-        // 2. 自动停止逻辑校验
+        // 2. 自动停止逻辑校验 (这里的逻辑不需要改，它会自动根据 0.5 度算对圈数)
         double total_angle_needed = ((start_radius_um + r_over_um) / pitch_per_rev_um) * 360.0;
         double current_total_angle = m_totalPoints * pulse_angle_deg;
 
         if (current_total_angle >= total_angle_needed) {
-            on_btn_Stop_clicked(); // 达到目标圈数，自动急停
-            ui.lbl_Status->setText(QString("状态：螺旋扫描完成！已自动停止。"));
-            return; // 丢弃多余的尾部数据
+            on_btn_Stop_clicked();
+            ui.lbl_Status->setText(QString("状态：极速螺旋扫描完成！已自动停止。"));
+            return;
         }
 
         // 3. 数据极坐标转直角坐标解算
@@ -440,6 +640,60 @@ void stil_drive::handleDataReady(QVector<double> alts, QVector<double> ints)
         // 图表显示设置：为了能一眼看清重叠效果，把视窗拉宽到 370 度
         window_width = target_angle_deg;
         unit_str = "度";
+    }
+    // =========================================================================
+    // 【模式 4】：非球面母线扫描
+    // =========================================================================
+    else if (syncMode == 4) {
+        // 起始半径 (µm) 和扫描范围 (µm)
+        double start_radius_um = ui.lineEdit_Radius->text().toDouble();
+        double scan_range_um = ui.lineEdit_Aspheric_Range->text().toDouble();
+        if (scan_range_um <= 0) scan_range_um = 50000.0;
+
+        // 读取非球面参数
+        double R_mm = ui.lineEdit_Aspheric_R->text().toDouble();        // 曲率半径 (mm)
+        double k = ui.lineEdit_Aspheric_K->text().toDouble();           // 圆锥系数
+        double A4 = ui.lineEdit_Aspheric_A4->text().toDouble();          // 4次项系数
+        double A6 = ui.lineEdit_Aspheric_A6->text().toDouble();          // 6次项系数
+        double A8 = ui.lineEdit_Aspheric_A8->text().toDouble();          // 8次项系数
+        double A10 = ui.lineEdit_Aspheric_A10->text().toDouble();        // 10次项系数
+        double A12 = ui.lineEdit_Aspheric_A12->text().toDouble();        // 12次项系数
+
+        if (R_mm <= 0) R_mm = 100.0; // 默认 100mm
+
+        // 计算安全步距
+        double step_um = calcSafeStepSize(start_radius_um / 1000.0, R_mm, k, A4, A6, A8, A10, A12);
+
+        // 自动停止校验
+        double current_radius = start_radius_um + m_totalPoints * step_um;
+        if (current_radius >= start_radius_um + scan_range_um) {
+            on_btn_Stop_clicked();
+            ui.lbl_Status->setText(QString("状态：非球面母线扫描完成！已自动停止。"));
+            return;
+        }
+
+        // 计算理论非球面 Z 值
+        for (int i = 0; i < dataSize; i++) {
+            double current_r_um = start_radius_um + (m_totalPoints + i) * step_um;
+            double current_r_mm = current_r_um / 1000.0;
+
+            // 使用辅助函数计算理论 Z 值
+            double z_theory = calcAsphericZ(current_r_mm, R_mm, k, A4, A6, A8, A10, A12);
+
+            // 计算实测偏差
+            double z_deviation = alts[i] - z_theory;
+
+            xData[i] = current_r_um;
+
+            if (m_csvFile.isOpen()) {
+                // CSV: 半径(µm), 0, 实测Z(µm), 理论Z(µm), 偏差(µm), 强度
+                m_csvStream << current_r_um << ",0.0," << alts[i] << "," << z_theory << "," << z_deviation << "," << ints[i] << "\n";
+            }
+            if (i == dataSize - 1) current_display_X = current_r_um;
+        }
+
+        window_width = scan_range_um;
+        unit_str = "µm";
     }
 
     // =========================================================================

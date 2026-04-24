@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>953</width>
+    <width>1097</width>
     <height>629</height>
    </rect>
   </property>
@@ -334,13 +334,258 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <string>10</string>
     </property>
    </widget>
+   <widget class="QGroupBox" name="groupBox_Aspheric">
+    <property name="geometry">
+     <rect>
+      <x>840</x>
+      <y>60</y>
+      <width>241</width>
+      <height>410</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>非球面参数</string>
+    </property>
+    <widget class="QLabel" name="label_Aspheric_R">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>30</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>曲率R(mm)：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_R">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>30</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>100</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_K">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>60</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>圆锥系数k：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_K">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>60</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_A4">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>95</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>A4系数：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_A4">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>95</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_A6">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>130</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>A6系数：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_A6">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>130</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_A8">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>165</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>A8系数：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_A8">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>165</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_A10">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>200</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>A10系数：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_A10">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>200</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_A12">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>235</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>A12系数：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_A12">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>235</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_Range">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>275</y>
+      </rect>
+     </property>
+     <property name="text">
+      <string>扫描半径(um)：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_Aspheric_Range">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>275</y>
+       <width>113</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>50000</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_Aspheric_Formula">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>310</y>
+       <width>221</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Z = c·r²/(1+sqrt(1-(1+k)c²r²)) + A4·r⁴ + A6·r⁶ + A8·r⁸ + A10·r¹⁰ + A12·r¹²</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="chk_FollowZ">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>355</y>
+       <width>200</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>启用Z轴轨迹跟随</string>
+     </property>
+    </widget>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>953</width>
+     <width>1097</width>
      <height>21</height>
     </rect>
    </property>
