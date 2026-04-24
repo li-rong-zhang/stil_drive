@@ -1,36 +1,30 @@
 #pragma once
 #include <QtWidgets/QMainWindow>
-#include <QTcpSocket>
 #include "ui_stil_drive.h"
 
-// 1. Windows ÏµÍ³Í·ÎÄ¼ş
-#define WIN32_LEAN_AND_MEAN 
-#define NOMINMAX      
+// 1. Windows ç³»ç»Ÿå¤´æ–‡ä»¶
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 
-// 2. ²âÍ· DLL µ¼Èëºê
+// 2. å£°æ˜ DLL å¯¼å…¥
 #ifndef DLL_CHR_API
 #define DLL_CHR_API __declspec(dllimport)
 #endif
 
-// 3. ²âÍ·ºËĞÄÎÄ¼ş
+// 3. æµ‹å¤´å¤´æ–‡ä»¶
 #include "MchrDefine.h"
 #include "MchrType.h"
 #include "MchrError.h"
 #include "Mchr.h"
 
-// 4. ×Ô¶¨ÒåÏß³ÌÀà
+// 4. è‡ªå®šä¹‰çº¿ç¨‹ç±»
 #include "SensorThread.h"
 
-// 5. Qt ÎÄ¼ş±£´æÖ§³Ö
+// 5. Qt æ–‡ä»¶æ“ä½œå’Œç½‘ç»œæ”¯æŒ
 #include <QFile>
 #include <QTextStream>
-
-// 6.ÒıÈëÎÄ¼şÑ¡Ôñ¶Ô»°¿ò
-#include <QFileDialog>   
-
-// 7.ÒıÈëÊÀ½ç×îÇ¿µÄ C++ ¾ØÕó¿â
-#include <Eigen/Dense>   
+#include <QTcpSocket>
 
 class stil_drive : public QMainWindow
 {
@@ -41,31 +35,36 @@ public:
     ~stil_drive();
 
 private slots:
+    // æµ‹å¤´æ§åˆ¶
     void on_btn_Connect_clicked();
     void on_btn_Disconnect_clicked();
     void on_btn_Start_clicked();
     void on_btn_Stop_clicked();
-    void on_btn_Analyze_clicked();
-    void on_btn_Send_Cmd_clicked();
 
-    // ½ÓÊÕÏß³ÌÊı¾İµÄ²Ûº¯Êı
+    // æ•°æ®å¤„ç†
     void handleDataReady(QVector<double> alts, QVector<double> ints);
     void handleError(QString msg);
 
-    // PMAC Í¨Ñ¶Ïà¹ØµÄ²Ûº¯Êı
-    void on_btn_pmac_connect_clicked(); // µã»÷¡°Á¬½Ó¿ØÖÆÆ÷¡±°´Å¥
-    void onPmacConnected();             // PMAC Á¬½Ó³É¹¦µÄ»Øµ÷
-    void onPmacDisconnected();          // PMAC ¶Ï¿ªÁ¬½ÓµÄ»Øµ÷
-    void onPmacReadyRead();             // ÊÕµ½ PMAC ·µ»ØÊı¾İÊ±µÄ»Øµ÷
+    // æ•°æ®åå¤„ç†
+    void on_btn_Analyze_clicked();
+
+    // PMAC ç½‘ç»œé€šè®¯
+    void on_btn_pmac_connect_clicked();
+    void on_btn_Send_Cmd_clicked();
+    void onPmacConnected();
+    void onPmacDisconnected();
+    void onPmacReadyRead();
 
 private:
     Ui::stil_driveClass ui;
     MCHR_ID m_sensorID = 0;
     SensorThread* m_thread = nullptr;
 
-    // »­Í¼Óë±£´æ±äÁ¿
+    // å›¾è¡¨ä¸ä¿å­˜
     long long m_totalPoints = 0;
     QFile m_csvFile;
     QTextStream m_csvStream;
-    QTcpSocket* pmacSocket;
+
+    // PMAC ç½‘ç»œé€šè®¯
+    QTcpSocket* pmacSocket = nullptr;
 };
