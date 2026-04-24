@@ -1,4 +1,4 @@
-﻿`   12QA43WS54ED6RFT5GYUHIJOK89LP0[-;]'=\784'#include "stil_drive.h"
+﻿#include "stil_drive.h"
 #include <QMessageBox>+
 #include <QDebug>
 #include <QDir>
@@ -36,8 +36,7 @@ static double calcAsphericZ(double r_mm, double R_mm, double k,
         + A6 * std::pow(r_mm, 6)
         + A8 * std::pow(r_mm, 8)
         + A10 * std::pow(r_mm, 10)
-        + A12 * std::po
-        (r_mm, 12);
+        + A12 * std::pow(r_mm, 12);
 
     // 总 Z 值 (圆锥面部分转换为 µm)
     return z_conic * 1000.0 + z_high;
