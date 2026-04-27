@@ -120,17 +120,27 @@
     <QtRcc Include="stil_drive.qrc" />
     <QtUic Include="stil_drive.ui" />
     <QtMoc Include="stil_drive.h" />
+    <ClCompile Include="AsphericMath.cpp" />
+    <ClCompile Include="DataReducer.cpp" />
+    <ClCompile Include="PmacController.cpp" />
+    <ClCompile Include="PmacScriptGen.cpp" />
     <ClCompile Include="qcustomplot.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SensorThread.cpp" />
     <ClCompile Include="stil_drive.cpp" />
+    <ClCompile Include="SurfaceAnalyzer.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\..\STIL\DLL\Headers\Colorimetry.h" />
     <QtMoc Include="qcustomplot.h" />
     <QtMoc Include="SensorThread.h" />
+    <ClInclude Include="AsphericMath.h" />
+    <ClInclude Include="DataReducer.h" />
+    <QtMoc Include="PmacController.h" />
+    <ClInclude Include="PmacScriptGen.h" />
+    <ClInclude Include="SurfaceAnalyzer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

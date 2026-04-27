@@ -2,29 +2,24 @@
 #include <QtWidgets/QMainWindow>
 #include "ui_stil_drive.h"
 
-// 1. Windows 系统头文件
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 
-// 2. 声明 DLL 导入
 #ifndef DLL_CHR_API
 #define DLL_CHR_API __declspec(dllimport)
 #endif
 
-// 3. 测头头文件
 #include "MchrDefine.h"
 #include "MchrType.h"
 #include "MchrError.h"
 #include "Mchr.h"
 
-// 4. 自定义线程类
 #include "SensorThread.h"
+#include "PmacController.h"
 
-// 5. Qt 文件操作和网络支持
 #include <QFile>
 #include <QTextStream>
-#include <QTcpSocket>
 
 class stil_drive : public QMainWindow
 {
@@ -35,36 +30,42 @@ public:
     ~stil_drive();
 
 private slots:
-    // 测头控制
+    // STIL 测头控制
     void on_btn_Connect_clicked();
     void on_btn_Disconnect_clicked();
     void on_btn_Start_clicked();
     void on_btn_Stop_clicked();
 
-    // 数据处理
+    // 数据处理（来自 SensorThread）
     void handleDataReady(QVector<double> alts, QVector<double> ints);
     void handleError(QString msg);
+
+    // PMAC 通讯
+    void on_btn_pmac_connect_clicked();
+    void on_btn_Send_Cmd_clicked();
+    void onPmacConnectStatusChanged(bool connected);
+
+    // 脚本生成（模式切换时更新 UI 文本框）
+    void onSyncAxisChanged(int index);
 
     // 数据后处理
     void on_btn_Analyze_clicked();
 
-    // PMAC 网络通讯
-    void on_btn_pmac_connect_clicked();
-    void on_btn_Send_Cmd_clicked();
-    void onPmacConnected();
-    void onPmacDisconnected();
-    void onPmacReadyRead();
-
 private:
+    void startCsvFile();
+    void stopCsvFile();
+
     Ui::stil_driveClass ui;
+
+    // STIL 测头
     MCHR_ID m_sensorID = 0;
     SensorThread* m_thread = nullptr;
 
-    // 图表与保存
+    // CSV 保存
     long long m_totalPoints = 0;
     QFile m_csvFile;
     QTextStream m_csvStream;
 
-    // PMAC 网络通讯
-    QTcpSocket* pmacSocket = nullptr;
+    // PMAC 控制器（独立模块）
+    PmacController* m_pmac = nullptr;
 };
