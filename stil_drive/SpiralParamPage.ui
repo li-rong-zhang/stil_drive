@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SpiralParamPageClass</class>
+ <widget class="QWidget" name="SpiralParamPageClass">
+  <property name="windowTitle">
+   <string>平面螺旋扫描</string>
+  </property>
+  <layout class="QVBoxLayout" name="vlayout">
+   <item>
+    <widget class="QLabel" name="lbl_Hint">
+     <property name="text">
+      <string>绝对起点 = 圆心。扫描方向从外向内，X 轴先快速移到外圈起始位置。</string>
+     </property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QFormLayout" name="form">
+     <item row="0" column="0"><widget class="QLabel" name="l1"><property name="text"><string>圆面半径 (mm)：</string></property></widget></item>
+     <item row="0" column="1"><widget class="QLineEdit" name="lineEdit_Radius"><property name="text"><string>10</string></property></widget></item>
+     <item row="1" column="0"><widget class="QLabel" name="l2"><property name="text"><string>螺距 (µm/圈)：</string></property></widget></item>
+     <item row="1" column="1"><widget class="QLineEdit" name="lineEdit_Pitch"><property name="text"><string>10</string></property></widget></item>
+     <item row="2" column="0"><widget class="QLabel" name="l3"><property name="text"><string>触发密度 (°/次)：</string></property></widget></item>
+     <item row="2" column="1"><widget class="QLineEdit" name="lineEdit_Density"><property name="text"><string>0.5</string></property></widget></item>
+     <item row="3" column="0"><widget class="QLabel" name="l4"><property name="text"><string>角速度 (°/s)：</string></property></widget></item>
+     <item row="3" column="1"><widget class="QLineEdit" name="lineEdit_AngSpeed"><property name="text"><string>1000</string></property></widget></item>
+     <item row="4" column="0"><widget class="QLabel" name="l5"><property name="text"><string>过心补偿量 (mm)：</string></property></widget></item>
+     <item row="4" column="1"><widget class="QLineEdit" name="lineEdit_OverCenter"><property name="text"><string>2.0</string></property></widget></item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="lbl_Summary">
+     <property name="text"><string>—</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="vspacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

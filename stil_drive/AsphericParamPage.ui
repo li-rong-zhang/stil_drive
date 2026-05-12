@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AsphericParamPageClass</class>
+ <widget class="QWidget" name="AsphericParamPageClass">
+  <property name="windowTitle">
+   <string>非球面母线扫描</string>
+  </property>
+  <layout class="QVBoxLayout" name="vlayout">
+   <item>
+    <widget class="QLabel" name="lbl_Hint">
+     <property name="text">
+      <string>Z = c·r²/(1+sqrt(1-(1+k)c²r²)) + A4·r⁴ + A6·r⁶ + A8·r⁸ + A10·r¹⁰ + A12·r¹²</string>
+     </property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_Equation">
+     <property name="title"><string>方程参数</string></property>
+     <layout class="QFormLayout" name="form_eq">
+      <item row="0" column="0"><widget class="QLabel" name="le1"><property name="text"><string>曲率 R (mm)：</string></property></widget></item>
+      <item row="0" column="1"><widget class="QLineEdit" name="lineEdit_R"><property name="text"><string>100</string></property></widget></item>
+      <item row="1" column="0"><widget class="QLabel" name="le2"><property name="text"><string>圆锥系数 K：</string></property></widget></item>
+      <item row="1" column="1"><widget class="QLineEdit" name="lineEdit_K"><property name="text"><string>0</string></property></widget></item>
+      <item row="2" column="0"><widget class="QLabel" name="le3"><property name="text"><string>A4：</string></property></widget></item>
+      <item row="2" column="1"><widget class="QLineEdit" name="lineEdit_A4"><property name="text"><string>0</string></property></widget></item>
+      <item row="3" column="0"><widget class="QLabel" name="le4"><property name="text"><string>A6：</string></property></widget></item>
+      <item row="3" column="1"><widget class="QLineEdit" name="lineEdit_A6"><property name="text"><string>0</string></property></widget></item>
+      <item row="4" column="0"><widget class="QLabel" name="le5"><property name="text"><string>A8：</string></property></widget></item>
+      <item row="4" column="1"><widget class="QLineEdit" name="lineEdit_A8"><property name="text"><string>0</string></property></widget></item>
+      <item row="5" column="0"><widget class="QLabel" name="le6"><property name="text"><string>A10：</string></property></widget></item>
+      <item row="5" column="1"><widget class="QLineEdit" name="lineEdit_A10"><property name="text"><string>0</string></property></widget></item>
+      <item row="6" column="0"><widget class="QLabel" name="le7"><property name="text"><string>A12：</string></property></widget></item>
+      <item row="6" column="1"><widget class="QLineEdit" name="lineEdit_A12"><property name="text"><string>0</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_Scan">
+     <property name="title"><string>扫描参数</string></property>
+     <layout class="QFormLayout" name="form_scan">
+      <item row="0" column="0"><widget class="QLabel" name="ls1"><property name="text"><string>X 起始 (µm)：</string></property></widget></item>
+      <item row="0" column="1"><widget class="QLineEdit" name="lineEdit_StartR"><property name="text"><string>10000</string></property></widget></item>
+      <item row="1" column="0"><widget class="QLabel" name="ls2"><property name="text"><string>X 范围 (µm)：</string></property></widget></item>
+      <item row="1" column="1"><widget class="QLineEdit" name="lineEdit_Range"><property name="text"><string>50000</string></property></widget></item>
+      <item row="2" column="0"><widget class="QLabel" name="ls3"><property name="text"><string>触发密度 (µm/次)：</string></property></widget></item>
+      <item row="2" column="1"><widget class="QLineEdit" name="lineEdit_Density"><property name="text"><string>0</string></property></widget></item>
+      <item row="3" column="0"><widget class="QLabel" name="ls4"><property name="text"><string>X 进给 (mm/s)：</string></property></widget></item>
+      <item row="3" column="1"><widget class="QLineEdit" name="lineEdit_Feedrate"><property name="text"><string>1.0</string></property></widget></item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="lbl_Summary">
+     <property name="text"><string>—</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="vspacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

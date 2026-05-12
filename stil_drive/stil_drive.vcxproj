@@ -119,6 +119,10 @@
   <ItemGroup>
     <QtRcc Include="stil_drive.qrc" />
     <QtUic Include="stil_drive.ui" />
+    <QtUic Include="LinearParamPage.ui" />
+    <QtUic Include="SpiralParamPage.ui" />
+    <QtUic Include="SphericalParamPage.ui" />
+    <QtUic Include="AsphericParamPage.ui" />
     <QtMoc Include="stil_drive.h" />
     <ClCompile Include="AsphericMath.cpp" />
     <ClCompile Include="DataReducer.cpp" />
@@ -131,6 +135,14 @@
     <ClCompile Include="stil_drive.cpp" />
     <ClCompile Include="SurfaceAnalyzer.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="LinearParamPage.cpp" />
+    <ClCompile Include="SpiralParamPage.cpp" />
+    <ClCompile Include="SphericalParamPage.cpp" />
+    <ClCompile Include="AsphericParamPage.cpp" />
+    <ClCompile Include="TrajectoryPlannerDock.cpp" />
+    <ClCompile Include="SensorConnectDialog.cpp" />
+    <ClCompile Include="PmacConnectDialog.cpp" />
+    <ClCompile Include="AxisMappingDialog.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\..\STIL\DLL\Headers\Colorimetry.h" />
@@ -141,6 +153,16 @@
     <QtMoc Include="PmacController.h" />
     <ClInclude Include="PmacScriptGen.h" />
     <ClInclude Include="SurfaceAnalyzer.h" />
+    <QtMoc Include="ParamPageBase.h" />
+    <QtMoc Include="LinearParamPage.h" />
+    <QtMoc Include="SpiralParamPage.h" />
+    <QtMoc Include="SphericalParamPage.h" />
+    <QtMoc Include="AsphericParamPage.h" />
+    <QtMoc Include="TrajectoryPlannerDock.h" />
+    <QtMoc Include="SensorConnectDialog.h" />
+    <QtMoc Include="PmacConnectDialog.h" />
+    <QtMoc Include="AxisMappingDialog.h" />
+    <ClInclude Include="AxisConfig.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SphericalParamPageClass</class>
+ <widget class="QWidget" name="SphericalParamPageClass">
+  <property name="windowTitle">
+   <string>球面纬线扫描</string>
+  </property>
+  <layout class="QVBoxLayout" name="vlayout">
+   <item>
+    <widget class="QLabel" name="lbl_Hint">
+     <property name="text">
+      <string>极点拓扑回避：拒绝 90°；倾角死区：拒绝 |纬度| &lt; 50°。</string>
+     </property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_Surface">
+     <property name="title"><string>球面类型</string></property>
+     <layout class="QHBoxLayout" name="hlayout_surf">
+      <item>
+       <widget class="QRadioButton" name="rb_Convex">
+        <property name="text"><string>凸面</string></property>
+        <property name="checked"><bool>true</bool></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="rb_Concave">
+        <property name="text"><string>凹面</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QFormLayout" name="form">
+     <item row="0" column="0"><widget class="QLabel" name="l1"><property name="text"><string>球面半径 (mm)：</string></property></widget></item>
+     <item row="0" column="1"><widget class="QLineEdit" name="lineEdit_SphereR"><property name="text"><string>50</string></property></widget></item>
+     <item row="1" column="0"><widget class="QLabel" name="l2"><property name="text"><string>纬度起始 (°)：</string></property></widget></item>
+     <item row="1" column="1"><widget class="QLineEdit" name="lineEdit_LatStart"><property name="text"><string>80</string></property></widget></item>
+     <item row="2" column="0"><widget class="QLabel" name="l3"><property name="text"><string>纬度终止 (°)：</string></property></widget></item>
+     <item row="2" column="1"><widget class="QLineEdit" name="lineEdit_LatEnd"><property name="text"><string>50</string></property></widget></item>
+     <item row="3" column="0"><widget class="QLabel" name="l4"><property name="text"><string>纬度间隔 (°)：</string></property></widget></item>
+     <item row="3" column="1"><widget class="QLineEdit" name="lineEdit_LatStep"><property name="text"><string>5</string></property></widget></item>
+     <item row="4" column="0"><widget class="QLabel" name="l5"><property name="text"><string>触发密度 (次/°)：</string></property></widget></item>
+     <item row="4" column="1"><widget class="QLineEdit" name="lineEdit_Density"><property name="text"><string>10</string></property></widget></item>
+     <item row="5" column="0"><widget class="QLabel" name="l6"><property name="text"><string>C 转速 (°/s)：</string></property></widget></item>
+     <item row="5" column="1"><widget class="QLineEdit" name="lineEdit_CSpeed"><property name="text"><string>100</string></property></widget></item>
+     <item row="6" column="0"><widget class="QLabel" name="l7"><property name="text"><string>过扫角 (°)：</string></property></widget></item>
+     <item row="6" column="1"><widget class="QLineEdit" name="lineEdit_OverScan"><property name="text"><string>5</string></property></widget></item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_Progress">
+     <property name="title"><string>多纬线进度</string></property>
+     <layout class="QVBoxLayout" name="vp">
+      <item>
+       <widget class="QLabel" name="lbl_Progress">
+        <property name="text"><string>进度：— / —（当前纬度 —）</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_ResetLat">
+        <property name="text"><string>重置到首条纬线</string></property>
+        <property name="toolTip"><string>将"当前纬度"指针重置回起始纬度（参数列表起点）。</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="lbl_Summary">
+     <property name="text"><string>—</string></property>
+     <property name="wordWrap"><bool>true</bool></property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="vspacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

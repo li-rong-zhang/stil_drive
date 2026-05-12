@@ -29,6 +29,18 @@
     <QtUic Include="stil_drive.ui">
       <Filter>Form Files</Filter>
     </QtUic>
+    <QtUic Include="LinearParamPage.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="SpiralParamPage.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="SphericalParamPage.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="AsphericParamPage.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
     <QtMoc Include="stil_drive.h">
       <Filter>Header Files</Filter>
     </QtMoc>
@@ -46,6 +58,30 @@
     <ClCompile Include="qcustomplot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LinearParamPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SpiralParamPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SphericalParamPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AsphericParamPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TrajectoryPlannerDock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SensorConnectDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PmacConnectDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AxisMappingDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\..\STIL\DLL\Headers\Colorimetry.h">
@@ -59,6 +95,36 @@
     <QtMoc Include="qcustomplot.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="ParamPageBase.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="LinearParamPage.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="SpiralParamPage.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="SphericalParamPage.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="AsphericParamPage.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="TrajectoryPlannerDock.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="SensorConnectDialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="PmacConnectDialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="AxisMappingDialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <ClInclude Include="AxisConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
